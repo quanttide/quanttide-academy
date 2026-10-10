@@ -33,13 +33,13 @@ git diff --stat main...FETCH_HEAD
 | 使用与交付文档 | `quanttide-asset/loops/second-brain-init/` 下除 `ui`、`tests`、`trials` 外 | 682 行 |
 | 启动、登记与说明文件 | 仓库根目录、`quanttide-asset/` | 544 行 |
 
-六行相加恰为 14999 行。可执行脚本（Python、JavaScript、shell、批处理）合计 30 个文件、5200 行，其余为 Markdown 文档、YAML 配置与 JSON 证据。测试证据占全部新增行数的 55%，是这批增量里体量最大的部分。
+六行相加恰为 14999 行。可执行脚本合计 34 个文件、5283 行，其中 Python 26 个文件 4891 行、JavaScript 4 个文件 309 行、中文命名的 shell 与批处理启动脚本 4 个文件 83 行；其余主要是 JSON 证据 6216 行与 Markdown 文档 2092 行。测试证据占全部新增行数的 55%，是这批增量里体量最大的部分。
 
 ## 这些增量在做什么
 
 分支围绕一个目标展开：把原本只存在于对话记录里的「第二大脑创建流程」变成一个非技术同事能双击启动、按页面提示完成的本机工具。
 
-第一部分是可双击启动的中文本机向导。根目录新增 `launch.py`、`首次配置.bat`、`启动向导.bat` 及对应的 `.sh` 版本和 `启动前检查.html`，`START_HERE.md` 是面向使用者的入口文档。向导本体是 `ui/app.py`（886 行），它只监听 `127.0.0.1`，提供「填写需求、审阅方案、确认执行、逐项检查、记录人工验收意见」的完整页面流程；`github_login.py` 负责调用官方 GitHub CLI 完成授权，`survey.py` 提供不写入的只读现状查询。界面版本从 0.3.0 迭代到 0.9.3。
+第一部分是可双击启动的中文本机向导。根目录新增 `launch.py`、`首次配置.bat`、`启动向导.bat` 及对应的 `.sh` 版本和 `启动前检查.html`，`START_HERE.md` 是面向使用者的入口文档。两个批处理文件的分工需要区分：`启动向导.bat` 只有 11 行，是纯入口，负责切到自身目录、确认虚拟环境存在、调用 `launch.py`；`首次配置.bat` 32 行实现的是环境编排，包括探测 Git 与 Python 3.10+、创建虚拟环境、安装依赖、运行一次契约检查，每步都有错误分支，但同样不含业务逻辑。对应的 `.sh` 文件分工一致，业务实现全部在 Python 里。向导本体是 `ui/app.py`（886 行），它只监听 `127.0.0.1`，提供「填写需求、审阅方案、确认执行、逐项检查、记录人工验收意见」的完整页面流程；`github_login.py` 负责调用官方 GitHub CLI 完成授权，`survey.py` 提供不写入的只读现状查询。界面版本从 0.3.0 迭代到 0.9.3。
 
 第二部分是把流程固化为可复用技能与执行器。`skills/second-brain-init/` 内含 `SKILL.md`、`specification.yaml` 与 `engine.py`（1615 行）。规格文件定义 20 类资产、7 个场景（新建、补全、追加、挂载、聚合、更名、发布），并把来源锁定到具体提交：原始流程 `2b5666c`、资产章程 `0301294`。执行器提供 plan、approve、apply、verify 四步的可恢复 Git 工作流，所有操作绑定计划编号，未确认不执行。`quanttide-asset/.quanttide/asset/contract.yaml` 与 `asset-entry.py` 把这套插件登记给资产云的 Rust CLI，使其可被发现和调用。
 
@@ -48,6 +48,25 @@ git diff --stat main...FETCH_HEAD
 第四部分是测试与证据。`tests/` 下的测试用真实本地 Git 仓库配合模拟的 GitHub 传输做故障注入，覆盖建仓、推送、挂载、中断恢复等路径。`trials/` 保存了 196 个证据文件，包括原始测试输出、浏览器截图、一次真实公开仓库的只读调查报告（`public-survey-040/report.json`），以及从资产云源码编译 Rust CLI 后的验收记录（`native-061/`）。值得注意的是证据里保留了失败记录，例如 `evidence-002/summary.json` 的状态是 `failed`、`ui-browser-003` 是浏览器启动失败，没有被改写成通过。
 
 第五部分是文档。除 `START_HERE.md` 外，新增验收表、使用说明、交付清单、接入说明、Windows 试用表、断网恢复说明、上线与联调说明与提交评审说明，`CHANGELOG.md` 追加了 30 行版本记录。
+
+## Python 代码的分层与核心功能
+
+Python 是这批增量的主体，26 个文件、4891 行，自下而上分为四层。
+
+| 层 | 文件（行数） | 职责 |
+|:--|:--|:--|
+| 启动 | `launch.py`（35） | 版本与依赖预检，进程级注入 Git 配置，再拉起 `app.py` |
+| 接入 | `quanttide-asset/asset-entry.py`（46） | 读取资产云契约、校验登记路径，派发到执行器命令行 |
+| 界面 | `ui/app.py`（886）与 `survey.py`（103）、`github_login.py`（71）、`repair.py`（79）、`partial_recovery.py`（104） | 本机 HTTP 服务、恢复决策与两个专用修复入口 |
+| 引擎 | `skills/second-brain-init/scripts/engine.py`（1615） | 计划、确认、执行、验证的全部实现 |
+
+`app.py` 的结构是 `Studio` 类（约 570 行）加 `Handler` 路由。`create` 建任务记录，`planning_task` 完成调查并生成方案，`execute` 先做执行前漂移检查再调用引擎，`build_report` 生成中文逐项报告，`acceptance` 保存人工验收意见；`connection_task`、`partial_task`、`repair_task` 是三个恢复入口，`recovery_guidance` 决定暂停状态应当对应哪个恢复动作。
+
+`engine.py` 中，`Provider` 类用同一接口实现本地 bare 仓库与 GitHub 两种后端，`Executor` 类实现建仓、挂载、领域文档、契约、目录、根索引、提交推送、更名与发布等操作，`command()` 是所有 Git 与 `gh` 调用的统一出口：只读操作有限重试，写入不重试，并记录观测事件。
+
+核心功能是一个四步闭环。`make_plan` 先做只读调查，再生成绑定引擎与规格指纹、锁定来源提交的计划；`approve` 要求确认记录绑定完整计划编号，改一个字就得重新规划；`apply` 按检查点逐步执行，每步之前核对相关仓库是否被人改动；`verify` 逐项核对提交一致性、子模块指针、目录坐标与契约和 `.gitmodules` 的对应关系。决定它行为边界的有三个设计：没有确认不创建工作区，模拟确认只允许本地模式；远端写入前先持久化写入意图，同一工作区与同一总入口跨进程加锁；结果不确定时不重试而先对账，推送失败先读远端确认提交是否到达，中断后由三个对账函数判断能否接续，对不上就停在暂停态交给人。这也是代码里大量篇幅用于失败后现场保护、而真正调用的 Git 命令只有几种的原因。
+
+实现上不求值任何 shell 字符串，全部 Git 调用走 `subprocess` 参数数组；17 个测试文件用真实本地 Git 仓库验证上述路径，而不是把 Git mock 掉。
 
 ## 验证边界与合并风险
 
