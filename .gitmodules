@@ -1,0 +1,3 @@
+[submodule "examples/quanttide-asset-lab"]
+	path = examples/quanttide-asset-lab
+	url = https://github.com/quanttide/quanttide-asset-lab.git
