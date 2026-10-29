@@ -12,3 +12,4 @@
 - 新增子模块 `examples/quanttide-asset-lab`，指向 `quanttide/quanttide-asset-lab`。
 - 初始化仓库：量潮实训基地主体档案。
 - data/journal 子模块更新：迁入实训基地实录 35 篇（2026-08~09，自量潮科技日志仓）
+- data/journal 子模块更新：7 篇业务设计日志移回公司日志仓
