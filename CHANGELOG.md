@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- `data/journal` 接收量潮科技草稿箱移入的七篇日志（2026-10-02~31，课堂/实训实录）。
 - 接收联盟移出的实训基地管理内容：`data/context`、`data/brochure`、`data/journal`、`data/profile` 四个子仓各新增 `default/` 记忆集——意图一篇、SVIP 特权一篇、日志三篇、组织档案一篇。
 - 配齐 `data/` 与 `docs/` 子模块：按命名契约 `quanttide-{类型}-of-training-base` 新建 17 个子仓库（`data/` 11 个、`docs/` 6 个）；`apps/` 与 `examples/` 保持原样。
 - `data/library` 与 `data/profile` 由仓库内直接组织改为子模块，原有各一份文档分别迁入 `quanttide-library-of-training-base` 与 `quanttide-profile-of-training-base`。
